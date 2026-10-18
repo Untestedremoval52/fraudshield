@@ -11,6 +11,9 @@ merchant_categories = ["grocery", "food", "travel", "electronics", "utilities", 
 cities = ["Delhi", "Mumbai", "Bengaluru", "Kolkata", "Chennai", "Hyderabad", "Pune", "Jaipur", "Lucknow", "Patna"]
 group_weights = {"G1" : 0.30, "G2" : 0.30, "G3" : 0.15, "G5" : 0.08, "G6" : 0.05, "G7" : 0.07, "G8" : 0.05}
 rng = np.random.default_rng(random_state)
+mules = [f"M{i:03d}" for i in range(60)]
+atm_terminals = [f"ATM{i:03d}" for i in range(500)]
+aeps_terminals = [f"AEPS{i:02d}" for i in range(15)]
 def make_customers(n):
     customer_id = [f"C{i:05d}" for i in range(n)]
     device_id = [f"D{i:05d}" for i in range(n)]
@@ -41,13 +44,86 @@ def add_genuine_noise(df):
     df.loc[festive, "amount"] *= 5
     df.loc[new_phone, "device_id"] = [f"DNEW{i:05d}" for i in range(len(new_phone))]
     return df
+def fix_atm_rows(df):
+    atm_rows = df.index[df["channel"] == "ATM"]
+    df.loc[atm_rows, "device_id"] = rng.choice(atm_terminals, len(atm_rows))
+    df.loc[atm_rows, ["mins_since_login", "otp_fill_seconds"]] = -1
+    return df
+def pick_rows(df, k):
+    return rng.choice(df.index[df["is_fraud"] == 0], k, replace = False)
+def mark_fraud(df, idx, group):
+    df.loc[idx, "is_fraud"] = 1
+    df.loc[idx, "fraud_group"] = group
+    df.loc[idx, "beneficiary"] = rng.choice(mules, len(idx))
+def fraud_g1(df, k):
+    idx = pick_rows(df, k)
+    mark_fraud(df, idx, "G1")
+    df.loc[idx, "device_id"] = [f"DF{i:05d}" for i in range(k)]
+    df.loc[idx, "city"] = rng.choice(cities, k)
+    df.loc[idx, "mins_since_login"] = rng.uniform(0.2, 3, k).round(1)
+    df.loc[idx, "amount"] = (df.loc[idx, "amount"] * rng.uniform(2, 6, k)).round(2)
+def fraud_g2(df, k):
+    n_victims = k // 6
+    victims = rng.choice(df["customer_id"].unique(), n_victims, replace = False)
+    for v in victims:
+        rows = df[(df["customer_id"] == v) & (df["is_fraud"] == 0)].sort_values("timestamp").index[-6:]
+        if len(rows) < 6:
+            continue
+        base = df.loc[rows[0], "amount"]
+        df.loc[rows, "amount"] = (base * 1.6 ** np.arange(6)).round(2)
+        df.loc[rows, "is_fraud"] = 1
+        df.loc[rows, "fraud_group"] = "G2"
+        df.loc[rows, "beneficiary"] = rng.choice(mules)
+def fraud_g3(df, k):
+    idx = pick_rows(df, k)
+    mark_fraud(df, idx, "G3")
+    df.loc[idx, "active_call"] = 1
+    df.loc[idx, "amount"] = (df.loc[idx, "amount"] * rng.uniform(1.5, 4, k)).round(2)
+def fraud_g5(df, k):
+    idx = pick_rows(df, k)
+    mark_fraud(df, idx, "G5")
+    df.loc[idx, "active_call"] = 1
+    df.loc[idx, "screen_share"] = 1
+    df.loc[idx, "amount"] = (df.loc[idx, "amount"] * rng.uniform(2, 5, k)).round(2)
+def fraud_g6(df, k):
+    idx = pick_rows(df, k)
+    mark_fraud(df, idx , "G6")
+    df.loc[idx, "otp_fill_seconds"] = rng.uniform(0.2, 1.5, k).round(1)
+    df.loc[idx, "new_app_installed"] = 1
+    df.loc[idx, "timestamp"] = df.loc[idx, "timestamp"].dt.normalize() + pd.to_timedelta(rng.integers(1, 5, k), unit = "h") + pd.to_timedelta(rng.integers(0, 60, k), unit = "m")
+def fraud_g7(df, k):
+    idx = pick_rows(df, k)
+    mark_fraud(df, idx, "G7")
+    df.loc[idx, "channel"] = "AEPS"
+    df.loc[idx, "device_id"] = rng.choice(aeps_terminals, k)
+    df.loc[idx, "mins_since_login"] = -1
+    df.loc[idx, "otp_fill_seconds"] = -1
+def fraud_g8(df, k):
+    idx = pick_rows(df, k)
+    mark_fraud(df, idx, "G8")
+    df.loc[idx, "channel"] = "ATM"
+    df.loc[idx, "device_id"] = rng.choice(atm_terminals, k)
+    df.loc[idx, "city"] = rng.choice(cities, k)
+    df.loc[idx, "amount"] = rng.choice([5000, 10000, 20000], k)
+    df.loc[idx, "mins_since_login"] = -1
+    df.loc[idx, "otp_fill_seconds"] = -1
+def inject_fraud(df):
+    df = fix_atm_rows(df)
+    n_fraud = int(n_transactions * fraud_rate)
+    counts = {g : int(round(w * n_fraud)) for g, w in group_weights.items()}
+    fraud_g1(df, counts["G1"])
+    fraud_g2(df, counts["G2"])
+    fraud_g3(df, counts["G3"])
+    fraud_g5(df, counts["G5"])
+    fraud_g6(df, counts["G6"])
+    fraud_g7(df, counts["G7"])
+    fraud_g8(df, counts["G8"])
+    return df
 if __name__ == "__main__":
     customers = make_customers(n_customers)
     df = make_genuine_transactions(customers, n_transactions)
     df = add_genuine_noise(df)
-    print("df shape: ", df.shape)
-    print("customer shape: ", customers.shape)
-    print(df["channel"].value_counts())
-    print(df["amount"].describe())
-    print("dates: ", df["timestamp"].min(), "to", df["timestamp"].max())
-    print("fraud rows: ", df["is_fraud"].sum())
+    df = inject_fraud(df)
+    print("fraud rows: ", df["is_fraud"].sum(), "rate: ", round(df["is_fraud"].mean(), 4))
+    print(df["fraud_group"].value_counts())
+    print(df.groupby("is_fraud")["amount"].median())
