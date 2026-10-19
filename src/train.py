@@ -31,10 +31,10 @@ def split_by_time(df):
     train, val, test = rest.iloc[ : a], rest.iloc[a : b], rest.iloc[b : ]
     cols = categorical + numeric
     return train[cols], val[cols], test[cols], train[target], val[target], test[target], held
-def make_preprocessor(scale):
-    return ColumnTransformer([("cat", OneHotEncoder(handle_unknown = "ignore"), categorical), ("num", StandardScaler() if scale else "passthrough", numeric)])
-def build_models():
-    return {"Logistic Regression" : make_pipeline(make_preprocessor(True), LogisticRegression(class_weight = "balanced", max_iter = 2000)), "Random Forest" : make_pipeline(make_preprocessor(False), RandomForestClassifier(n_estimators = 300, class_weight = "balanced", min_samples_leaf = 2, n_jobs = 1, random_state = random_state)), "Gradient Boosting" : make_pipeline(make_preprocessor(False), HistGradientBoostingClassifier(class_weight = "balanced", random_state = random_state))}
+def make_preprocessor(scale, cats_cols = categorical, nums_cols = numeric):
+    return ColumnTransformer([("cat", OneHotEncoder(handle_unknown = "ignore"), cats_cols), ("num", StandardScaler() if scale else "passthrough", nums_cols)])
+def build_models(cats_cols = categorical, nums_cols = numeric):
+    return {"Logistic Regression" : make_pipeline(make_preprocessor(True, cats_cols, nums_cols), LogisticRegression(class_weight = "balanced", max_iter = 2000)), "Random Forest" : make_pipeline(make_preprocessor(False, cats_cols, nums_cols), RandomForestClassifier(n_estimators = 300, class_weight = "balanced", min_samples_leaf = 2, n_jobs = -1, random_state = random_state)), "Gradient Boosting" : make_pipeline(make_preprocessor(False, cats_cols, nums_cols), HistGradientBoostingClassifier(class_weight = "balanced", random_state = random_state))}
 def tune_threshold(y_true, proba):
     precision, recall, thresholds = precision_recall_curve(y_true, proba)
     f1 = 2 * precision * recall / (precision + recall + 1e-12)

@@ -1,0 +1,7 @@
+features,model,val_pr_auc,pr_auc,precision,recall,f1_score
+transaction_only,Logistic Regression,0.008,0.178,0.408,0.094,0.153
+transaction_only,Random Forest,0.085,0.376,0.719,0.242,0.362
+transaction_only,Gradient Boosting,0.311,0.434,0.598,0.365,0.453
+with_balances,Logistic Regression,0.525,0.749,0.925,0.492,0.642
+with_balances,Random Forest,1.0,0.999,0.999,0.984,0.991
+with_balances,Gradient Boosting,0.995,0.999,1.0,0.987,0.993
