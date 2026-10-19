@@ -1,0 +1,7 @@
+detector,unseen_G6_caught,known_fraud_caught
+Isolation Forest (1 % alerts),0.464,0.244
+Isolation Forest (2 % alerts),0.554,0.341
+Isolation Forest (5 % alerts),0.732,0.468
+Supervised (F1 Threshold),0.357,0.722
+Supervised (cost threshold),0.643,0.98
+Supervised (cost) OR IF 2%,0.786,0.98
