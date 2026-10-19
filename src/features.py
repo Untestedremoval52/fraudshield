@@ -5,7 +5,7 @@ warm_up_days = 30
 app_channels = ["UPI", "Card_online", "Net_banking"]
 target = "is_fraud"
 categorical = ["channel", "merchant_category"]
-numeric = ["amount", "log_amount", "amount_ratio", "hour", "is_night", "mins_since_login", "otp_fill_seconds", "failed_attempts", "active_call", "screen_share", "new_app_installed", "is_new_channel", "is_new_beneficiary", "is_new_device", "is_new_city", "ben_fan_in"]
+numeric = ["amount", "log_amount", "amount_ratio", "hour", "is_night", "mins_since_login", "otp_fill_seconds", "failed_attempts", "active_call", "screen_share", "new_app_installed", "is_new_channel", "is_new_beneficiary", "is_new_device", "is_new_city", "ben_fan_in", "ben_is_merchant"]
 def load_transactions(path):
     df = pd.read_csv(path, parse_dates = ["timestamp"])
     return df.sort_values("timestamp").reset_index(drop = True)

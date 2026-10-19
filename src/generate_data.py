@@ -11,9 +11,10 @@ merchant_categories = ["grocery", "food", "travel", "electronics", "utilities", 
 cities = ["Delhi", "Mumbai", "Bengaluru", "Kolkata", "Chennai", "Hyderabad", "Pune", "Jaipur", "Lucknow", "Patna"]
 group_weights = {"G1" : 0.30, "G2" : 0.30, "G3" : 0.15, "G5" : 0.08, "G6" : 0.05, "G7" : 0.07, "G8" : 0.05}
 rng = np.random.default_rng(random_state)
-mules = [f"M{i:03d}" for i in range(60)]
+mules = [f"M{i:03d}" for i in range(100)]
 atm_terminals = [f"ATM{i:03d}" for i in range(500)]
 aeps_terminals = [f"AEPS{i:02d}" for i in range(15)]
+merchants = [f"MER{i:03d}" for i in range(300)]
 def make_customers(n):
     customer_id = [f"C{i:05d}" for i in range(n)]
     device_id = [f"D{i:05d}" for i in range(n)]
@@ -119,11 +120,35 @@ def inject_fraud(df):
     fraud_g7(df, counts["G7"])
     fraud_g8(df, counts["G8"])
     return df
+def add_genuine_overlap(df):
+    n = len(df)
+    to_merchant = rng.random(n) < 0.30
+    df.loc[to_merchant, "beneficiary"] = rng.choice(merchants, to_merchant.sum())
+    df.loc[rng.random(n) < 0.05, "active_call"] = 1
+    df.loc[rng.random(n) < 0.005, "screen_share"] = 1
+    df.loc[rng.random(n) < 0.03, "new_app_installed"] = 1
+    autofill = rng.random(n) < 0.20
+    df.loc[autofill, "otp_fill_seconds"] = rng.uniform(0.3, 3, autofill.sum()).round(1)
+    quick = rng.random(n) < 0.25
+    df.loc[quick, "mins_since_login"] = rng.uniform(0.2, 3, quick.sum()).round(1)
+    return df
+def weaken_fraud(df):
+    idx = df.index[df["is_fraud"] == 1]
+    one_off = idx[rng.random(len(idx)) < 0.25]
+    df.loc[one_off, "beneficiary"] = [f"X{i:05d}" for i in range(len(one_off))]
+    for col, drop in [("active_call", 0.3), ("screen_share", 0.3), ("new_app_installed", 0.4)]:
+        has = idx[df.loc[idx, col] == 1]
+        drop_rows = has[rng.random(len(has)) < drop]
+        df.loc[drop_rows, col] = 0
+    return df
 if __name__ == "__main__":
     customers = make_customers(n_customers)
     df = make_genuine_transactions(customers, n_transactions)
     df = add_genuine_noise(df)
+    df = add_genuine_overlap(df)
     df = inject_fraud(df)
+    df = weaken_fraud(df)
+    df["ben_is_merchant"] = df["beneficiary"].str.startswith("MER").astype(int)
     df = df.sort_values("timestamp").reset_index(drop = True)
     df.to_csv("data/transactions.csv", index = False)
     print("missing values: ", df.isna().sum().sum())
