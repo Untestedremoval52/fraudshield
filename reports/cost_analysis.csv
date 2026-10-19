@@ -1,0 +1,7 @@
+false_alarm_cost,threshold_type,threshold,fraud_missed,false_alarms,total_cost
+50,f1,0.927,83,43,712686
+50,cost,0.18,6,474,36679
+200,f1,0.927,83,43,719136
+200,cost,0.18,6,474,107779
+1000,f1,0.927,83,43,753536
+1000,cost,0.9,68,55,544095
