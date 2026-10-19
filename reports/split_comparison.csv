@@ -1,0 +1,7 @@
+split,model,val_pr_auc,pr_auc,precision,recall,f1_score
+random,Logistic Regression,0.717,0.743,0.773,0.694,0.731
+random,Random Forest,0.898,0.865,0.827,0.781,0.803
+random,Gradient Boosting,0.873,0.864,0.845,0.781,0.812
+time,Logistic Regression,0.681,0.346,0.267,0.783,0.398
+time,Random Forest,0.885,0.92,0.849,0.846,0.848
+time,Gradient Boosting,0.885,0.843,0.834,0.722,0.774

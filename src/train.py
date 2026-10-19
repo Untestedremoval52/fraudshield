@@ -22,6 +22,15 @@ def split_data(df):
     X_train, X_tmp, y_train, y_tmp = train_test_split(X, y, test_size = 0.30, stratify = y, random_state = random_state)
     X_val, X_test, y_val, y_test = train_test_split(X_tmp, y_tmp, test_size = 0.50, stratify = y_tmp, random_state = random_state)
     return X_train, X_val, X_test, y_train, y_val, y_test, held
+def split_by_time(df):
+    df = df.sort_values("timestamp").reset_index(drop = True)
+    held = df[df["fraud_group"] == held_out_group]
+    rest = df[df["fraud_group"] != held_out_group].reset_index(drop = True)
+    n = len(rest)
+    a, b = int(n * 0.70), int(n * 0.85)
+    train, val, test = rest.iloc[ : a], rest.iloc[a : b], rest.iloc[b : ]
+    cols = categorical + numeric
+    return train[cols], val[cols], test[cols], train[target], val[target], test[target], held
 def make_preprocessor(scale):
     return ColumnTransformer([("cat", OneHotEncoder(handle_unknown = "ignore"), categorical), ("num", StandardScaler() if scale else "passthrough", numeric)])
 def build_models():
@@ -36,7 +45,7 @@ def evaluate(y_true, proba, threshold):
     return {"pr_auc" : average_precision_score(y_true, proba), "precision" : precision_score(y_true, pred), "recall" : recall_score(y_true, pred), "f1_score" : f1_score(y_true, pred)}
 if __name__ == "__main__":
     df = build_dataset()
-    X_train, X_val, X_test, y_train, y_val, y_test, held = split_data(df)
+    X_train, X_val, X_test, y_train, y_val, y_test, held = split_by_time(df)
     results, fitted = [], {}
     print(f"Size of X_train: {len(X_train)}, Size of X_val: {len(X_val)}, Size of X_test: {len(X_test)}, Size of held: {len(held)}, Fraud count of y_train: {y_train.sum()}, Fraud count of y_val: {y_val.sum()}, Fraud count of y_test: {y_test.sum()}")
     for name, model in build_models().items():
@@ -46,7 +55,7 @@ if __name__ == "__main__":
         scores = evaluate(y_val, proba_val, threshold)
         results.append({"model" : name, "threshold" : round(threshold, 3), **{k : round(v, 3) for k, v in scores.items()}})
         fitted[name] = (model, threshold, proba_val)
-    table = pd.DataFrame(results).sort_values("pr_auc", ascending = False)
+    table = pd.DataFrame(results).sort_values(["pr_auc", "f1_score"], ascending = False)
     print(table)
     os.makedirs("reports/figures", exist_ok = True)
     table.to_csv("reports/model_comparison.csv", index = False)

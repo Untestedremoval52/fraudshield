@@ -1,4 +1,4 @@
 model,threshold,pr_auc,precision,recall,f1_score
-Random Forest,0.53,0.898,0.838,0.847,0.843
-Gradient Boosting,0.889,0.873,0.856,0.847,0.851
-Logistic Regression,0.933,0.717,0.768,0.776,0.772
+Gradient Boosting,0.927,0.885,0.839,0.804,0.821
+Random Forest,0.466,0.885,0.836,0.804,0.82
+Logistic Regression,0.943,0.681,0.643,0.735,0.686
