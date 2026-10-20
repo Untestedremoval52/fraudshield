@@ -1,0 +1,47 @@
+import ast
+import numpy as np
+import pandas as pd
+import streamlit as st
+from sklearn.metrics import average_precision_score
+from src.api import block_threshold, cost_threshold
+st.title("Model performance")
+st.caption("A dashboard to check the model performance")
+pred = pd.read_csv("reports/test_predictions.csv")
+y, p, amt = pred["is_fraud"].to_numpy(), pred["fraud_probability"].to_numpy(), pred["amount"].to_numpy()
+st.subheader("Pick a threshold, see the trade-off")
+c1, c2 = st.columns(2)
+t = c1.slider("Flag a fraud payment when the fraud probability is at least", 0.01, 0.99, float(round(block_threshold, 2)), 0.01)
+fa_cost = c2.select_slider("Cost of one false alarm (₹)", [50, 100, 200, 500, 1000], 200)
+flag = p >= t
+caught = int((flag & (y == 1)).sum())
+missed = int((~flag & (y == 1)).sum())
+false_alarms = int((flag & (y == 0)).sum())
+cost = amt[~flag & (y == 1)].sum() + fa_cost * false_alarms
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Fraud caught", f"{caught} of {caught + missed}")
+m2.metric("Fraud missed", missed)
+m3.metric("False alarms", false_alarms)
+m4.metric("Total cost", f"₹{cost:,.0f}")
+st.caption(f"PR-AUC {average_precision_score(y, p):.3f} · Precision {caught / max(caught + false_alarms, 1):.2f} · Recall {caught / max(caught + missed, 1):.2f} · Block threshold {block_threshold:.2f} · Cost threshold {cost_threshold}")
+grid = np.linspace(0.01, 0.99, 99)
+curve = pd.DataFrame({"threshold" : grid, "total cost (₹)" : [amt[(p < g) & (y == 1)].sum() + fa_cost * ((p >= g) & (y == 0)).sum() for g in grid]}).set_index("threshold")
+st.line_chart(curve)
+st.subheader("Fraud it has never seen")
+unseen = pd.read_csv("reports/unseen_fraud.csv").set_index("detector")
+st.bar_chart(unseen["unseen_G6_caught"], horizontal = True)
+st.caption("Fraud probability after looking the unseen fraud went from 36% to 79%")
+st.subheader("Choosing the model")
+cv = pd.read_csv("reports/cv_selection.csv")
+cv["folds"] = cv["folds"].apply(ast.literal_eval)
+st.dataframe(cv, hide_index = True, width = "stretch", column_config = {"folds" : st.column_config.LineChartColumn("PR-AUC per time fold", y_min = 0.5, y_max = 1.0)})
+st.subheader("Why the split method matters")
+split = pd.read_csv("reports/split_comparison.csv").pivot(index = "model", columns = "split", values = "pr_auc")
+st.bar_chart(split, stack = False)
+st.caption("The split method helps the model to peek at the future")
+st.subheader("What drives the decision")
+st.image("reports/figures/shap_summary.png")
+st.caption("Fan-in values lowers as the SHAP values increases")
+st.subheader("Check on the real-world-type data (PaySim)")
+st.dataframe(pd.read_csv("reports/paysim_results.csv"), hide_index = True, width = "stretch")
+st.subheader("Limitations")
+st.warning("This is based on synthetic data, PaySim artefact and has a large-mule-network blind spot")
