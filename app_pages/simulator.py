@@ -2,28 +2,41 @@ import time
 import streamlit as st
 from src.api import Transaction, to_row, decide, model, iso, iso_cut, explainer, block_threshold, cost_threshold
 from src.explain import explain_one
-from src.scenarios import scenarios, reason_text
+from src.scenarios import reason_text
+from src.situations import situations
 colours = {"Block" : "#E5484D", "Step_up_OTP" : "#F5A524", "Approve" : "#30A46C"}
 labels = {"Block" : "BLOCK", "Step_up_OTP" : "STEP-UP OTP", "Approve" : "APPROVE"}
 st.markdown("""<style>
-@keyframes rise {from {opacity : 0 ; transform : translateY(8px);} to {opacity : 1 ; transform : None}}
+@keyframes rise {from {opacity : 0 ; transform : translateY(8px);} to {opacity : 1 ; transform : none}}
 .verdict {border-radius : 14px ; padding : 18px 22px ; animation : rise 0.5s ease-out;}
 .phone {width : 230px ; margin : auto ; border : 1px solid #3A3F4B ; border-radius : 28px ; padding : 22px 16px ; background : #111520 ; animation : rise 0.6s ease-out;}
+[data-testid = "InputInstructions"] {display : none;}
 </style>""", unsafe_allow_html = True)
 st.title("FraudShield")
 st.caption("AI-based online fraudulent payment detection system")
-choice = st.pills("Scenario", list(scenarios), default = list(scenarios)[0])
-sc = scenarios[choice]
-st.write(sc["story"])
-tx = dict(sc["tx"])
-with st.expander("What if? Adjust the payment"):
-    c1, c2, c3 = st.columns(3)
-    tx["amount_ratio"] = c1.slider("x usual amount", 0.2, 10.0, float(tx["amount_ratio"]), 0.1)
-    tx["ben_fan_in"] = c1.slider("People who paid this account", 0, 150, int(tx.get("ben_fan_in", 0)))
-    tx["active_call"] = int(c2.toggle("Phone call active", bool(tx.get("active_call", 0))))
-    tx["screen_share"] = int(c2.toggle("Screen share done", bool(tx.get("screen_share", 0))))
-    tx["is_new_beneficiary"] = int(c2.toggle("New account holder", bool(tx.get("is_new_beneficiary", 0))))
-    tx["new_app_installed"] = int(c3.toggle("New app installed", bool(tx.get("new_app_installed", 0))))
+with st.form("payment"):
+    a, b = st.columns(2, gap = "large")
+    with a:
+        st.markdown("**1. Your payment**")
+        amount = st.number_input("Amount (₹)", min_value = 1, max_value = 1000000, value = None, placeholder = "5000")
+        usual = st.number_input("Your usual payment amount (₹)", min_value = 1, max_value = 1000000, value = None, placeholder = "2000")
+        channel = st.selectbox("Paid with", ["UPI", "Card_online", "Net_banking", "ATM"], index = None, placeholder = "Choose a method")
+        category = st.selectbox("Paying for", ["grocery", "food", "travel", "electronics", "utilities", "fashion", "entertainment", "transfer"], index = None, placeholder = "Choose a category")
+        hour = st.slider("Hour of the day", 0, 23, 14)
+    with b:
+        st.markdown("**2. What is happening around it**")
+        situation = st.radio("Situation", list(situations), index = None, captions = [s["story"] for s in situations.values()], label_visibility = "collapsed")
+    submitted = st.form_submit_button("Check payment", type = "primary")
+if submitted:
+    if None in (amount, usual, channel, category, situation):
+        st.error("Fill in all the steps 1 and 2 first.")
+        st.session_state.pop("tx", None)
+    else:
+        st.session_state["tx"] = {"channel" : channel, "merchant_category" : category, "amount" : amount, "amount_ratio" : round(amount / usual, 2), "hour" : hour, **situations[situation]["signals"]}
+        st.session_state["situation"] = situation
+if "tx" not in st.session_state:
+    st.stop()
+tx, sc = st.session_state["tx"], situations[st.session_state["situation"]]
 start = time.perf_counter()
 row = to_row(Transaction(**tx))
 p = float(model.predict_proba(row)[0, 1])
@@ -42,18 +55,20 @@ with left:
                 f"<div style = 'font-size : 30px ; font-weight : 600 ; color : {colours[d]}'>{labels[d]}</div>"
                 f"<div style = 'opacity : 0.8'>{info}</div>" f"</div>", unsafe_allow_html = True)
     st.progress(p)
-    st.caption(f"Step-up OTP from {cost_threshold}, Block from {block_threshold:.2f}")
     st.subheader("Why")
     if d == "Approve" or not reasons:
-        st.markdown("Nothing unusual : a familiar payee, a normal amount and a normal time.")
+        st.markdown("Nothing that looks like a fraud stands out.")
     else:
         for f in reasons:
             st.markdown(f"- {reason_text(f, tx)}")
 with right:
-    if d != "Approve" or choice == list(scenarios)[0]:
-        msg = sc["phone"]
+    amt = f"₹{tx['amount']:,.0f}"
+    if d == "Block":
+        msg = f"Payment of {amt} blocked. {sc['hint']}"
+    elif d == "Step_up_OTP":
+        msg = f"Did you start this {amt} payment? {sc['hint']} Confirm with your OTP."
     else:
-        msg = "Payment approved."
+        msg = f"{amt} paid."
     st.markdown(f"<div class = 'phone'>"
                 f"<div style = 'text-align : center ; opacity : 0.6 ; font-size : 12px'>Customer's phone</div>"
                 f"<div style = 'margin-top : 14px ; padding : 12px ; border-radius : 12px ; background : {colours[d]}22 ; border-left : 3px solid {colours[d]}'>{msg}</div>"
