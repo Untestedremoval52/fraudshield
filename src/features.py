@@ -26,6 +26,10 @@ def build_dataset(path = data_path):
     start = df["timestamp"].min().normalize()
     df = df[df["timestamp"] >= start + pd.Timedelta(days = warm_up_days)].reset_index(drop = True)
     return df
+def add_derived(df):
+    df["log_amount"] = np.log1p(df["amount"]).round(4)
+    df["is_night"] = df["hour"].between(0, 5).astype(int)
+    return df
 if __name__ == "__main__":
     df = build_dataset()
     print(df.shape, df[target].sum())

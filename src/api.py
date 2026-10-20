@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel
-from src.features import categorical, numeric
+from src.features import categorical, numeric, add_derived
 from src.explain import make_explainer, explain_one
 cost_threshold = 0.18
 fraud = joblib.load("models/fraud_model.joblib")
@@ -34,6 +34,7 @@ def to_row(tx):
     row = pd.DataFrame([tx.model_dump()])
     row["log_amount"] = np.log1p(row["amount"]).round(4)
     row["is_night"] = row["hour"].between(0, 5).astype(int)
+    row = add_derived(pd.DataFrame([tx.model_dump()]))
     return row[categorical + numeric]
 def decide(p, anomalous):
     if p >= block_threshold:
