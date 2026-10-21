@@ -4,6 +4,8 @@ import pandas as pd
 import streamlit as st
 from sklearn.metrics import average_precision_score
 from src.api import block_threshold, cost_threshold
+from src.ui import style, inr
+style()
 st.title("Model performance")
 st.caption("Every number here comes from payments the model never saw during training.")
 pred = pd.read_csv("reports/test_predictions.csv")
@@ -28,7 +30,7 @@ m1, m2, m3, m4 = st.columns(4)
 m1.metric("Fraud caught", f"{caught} of {caught + missed}")
 m2.metric("Fraud missed", missed)
 m3.metric("False alarms", f"{false_alarms:,}")
-m4.metric("Total cost", f"₹{cost:,.0f}")
+m4.metric("Total cost", inr(cost))
 st.caption(f"PR-AUC {average_precision_score(y, p):.3f} · Precision {caught / max(caught + false_alarms, 1):.2f} · Recall {caught / max(caught + missed, 1):.2f} · Block threshold {block_threshold:.2f} · Cost threshold {cost_threshold}")
 grid = np.linspace(0.01, 0.95, 95)
 curve = pd.DataFrame({"threshold" : grid, "total cost (₹)" : [amt[(p < g) & (y == 1)].sum() + fa_cost * ((p >= g) & (y == 0)).sum() for g in grid]}).set_index("threshold")

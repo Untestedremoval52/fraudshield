@@ -1,17 +1,11 @@
 import time
 import streamlit as st
-from src.api import Transaction, to_row, decide, model, iso, iso_cut, explainer, block_threshold, cost_threshold
+from src.api import Transaction, to_row, decide, model, iso, iso_cut, explainer
 from src.explain import explain_one
 from src.scenarios import reason_text
 from src.situations import situations
-colours = {"Block" : "#E5484D", "Step_up_OTP" : "#F5A524", "Approve" : "#30A46C"}
-labels = {"Block" : "BLOCK", "Step_up_OTP" : "STEP-UP OTP", "Approve" : "APPROVE"}
-st.markdown("""<style>
-@keyframes rise {from {opacity : 0 ; transform : translateY(8px);} to {opacity : 1 ; transform : none}}
-.verdict {border-radius : 14px ; padding : 18px 22px ; animation : rise 0.5s ease-out;}
-.phone {width : 230px ; margin : auto ; border : 1px solid #3A3F4B ; border-radius : 28px ; padding : 22px 16px ; background : #111520 ; animation : rise 0.6s ease-out;}
-[data-testid = "InputInstructions"] {display : none;}
-</style>""", unsafe_allow_html = True)
+from src.ui import style, colours, labels, inr
+style()
 st.title("FraudShield")
 st.caption("AI-based online fraudulent payment detection system")
 with st.form("payment"):
@@ -46,15 +40,17 @@ reasons = [f for f, v in explain_one(model, explainer, row) if v >= 0.1]
 ms = (time.perf_counter() - start) * 1000
 left, right = st.columns([3, 2], gap = "large")
 with left:
-    info = f"Fraud probability {p:.2f} and decided in {ms:.0f} ms"
+    info = f"Fraud probability {p:.2f} · decided in {ms:.0f} ms"
     if d == "Block":
-        info += " · Sent for manual reviewing"
+        info += " · sent for manual review"
     if anomalous:
-        info += " · Unusual pattern flagged"
+        info += " · unusual pattern flagged"
     st.markdown(f"<div class = 'verdict' style = 'background : {colours[d]}22 ; border : 1px solid {colours[d]}'>"
                 f"<div style = 'font-size : 30px ; font-weight : 600 ; color : {colours[d]}'>{labels[d]}</div>"
-                f"<div style = 'opacity : 0.8'>{info}</div>" f"</div>", unsafe_allow_html = True)
-    st.progress(p)
+                f"<div style = 'opacity : 0.8'>{info}</div>"
+                f"<div style = 'margin-top : 12px ; height : 6px ; border-radius : 3px ; background : #ffffff22'>"
+                f"<div style = 'width : {max(p, 0.02) * 100:.0f}% ; height : 6px ; border-radius : 3px ; background : {colours[d]}'></div></div>"
+                f"</div>", unsafe_allow_html = True)
     st.subheader("Why")
     if d == "Approve" or not reasons:
         st.markdown("Nothing that looks like a fraud stands out.")
@@ -62,7 +58,7 @@ with left:
         for f in reasons:
             st.markdown(f"- {reason_text(f, tx)}")
 with right:
-    amt = f"₹{tx['amount']:,.0f}"
+    amt = inr(tx['amount'])
     if d == "Block":
         msg = f"Payment of {amt} blocked. {sc['hint']}"
     elif d == "Step_up_OTP":
