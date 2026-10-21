@@ -16,7 +16,7 @@ with st.form("payment"):
         usual = st.number_input("Your usual payment amount (₹)", min_value = 1, max_value = 1000000, value = None, placeholder = "2000")
         channel = st.selectbox("Paid with", ["UPI", "Card_online", "Net_banking", "ATM"], index = None, placeholder = "Choose a method")
         category = st.selectbox("Paying for", ["grocery", "food", "travel", "electronics", "utilities", "fashion", "entertainment", "transfer"], index = None, placeholder = "Choose a category")
-        hour = st.slider("Hour of the day", 0, 23, 14)
+        hour = st.slider("Hour of the day", 0, 23, 14, format = "%d:00")
     with b:
         st.markdown("**2. What is happening around it**")
         situation = st.radio("Situation", list(situations), index = None, captions = [s["story"] for s in situations.values()], label_visibility = "collapsed")

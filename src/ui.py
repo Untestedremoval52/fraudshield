@@ -22,3 +22,6 @@ def inr(x):
             groups.insert(0, head)
         s = ",".join(groups) + "," + tail
     return ("-" if x < 0 else "") + "₹" + s
+pretty = {"Approve" : "Approved", "Step_up_OTP" : "Step-up OTP", "Block" : "Blocked"}
+def table_columns():
+    return {"channel" : st.column_config.TextColumn("Channel"), "amount" : st.column_config.NumberColumn("Amount",format = "₹%d"), "hour" : st.column_config.NumberColumn("Hour", format = "%d:00"), "fraud_probability" : st.column_config.ProgressColumn("Fraud probability", min_value = 0, max_value = 1, format = "%.2f"), "top_reason" : st.column_config.TextColumn("Main reason", width = "large"), "decision" : st.column_config.TextColumn("Decision")}

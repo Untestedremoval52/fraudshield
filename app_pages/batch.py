@@ -2,10 +2,10 @@ import time
 import pandas as pd
 import streamlit as st
 from src.batch import score_batch, required
-from src.ui import style, inr
+from src.ui import style, inr, pretty, table_columns
 style()
 st.title("Batch scoring")
-st.caption("Learning fraud patterns from transactions behaviour")
+st.caption("Upload a day of payments. Every row gets a decision, and blocked ones go to a manual review queue.")
 @st.cache_data
 def run(df):
     return score_batch(df)
@@ -40,7 +40,7 @@ if "is_fraud" in out.columns:
     st.info(f"Known fraud in this file: {fraud.sum()}, Stopped (blocked or OTP): {stopped.sum()} ({stopped.sum() / max(fraud.sum(), 1):.0%}). Genuine payments blocked: {((~fraud) & (out['decision'] == 'Block')).sum()}.")
 st.subheader("Manual review queue")
 queue = out[out["decision"] == "Block"].sort_values("fraud_probability", ascending = False)
-st.dataframe(queue[["channel", "amount", "hour", "fraud_probability", "top_reason"]], hide_index = True, width = "stretch", column_config = {"fraud_probability" : st.column_config.ProgressColumn("Fraud probability", min_value = 0, max_value = 1, format = "%.2f"), "amount" : st.column_config.NumberColumn("Amount (₹)", format = "%.0f"), "top_reason" : st.column_config.TextColumn("Main reason", width = "large")})
+st.dataframe(queue[["channel", "amount", "hour", "fraud_probability", "top_reason"]], hide_index = True, width = "stretch", column_config = table_columns())
 st.download_button("Download all scored payments", out.to_csv(index = False).encode(), "fraudshield_scored.csv", "text/csv")
 st.subheader("Replay as a live stream")
 if st.button("Start replay"):
@@ -52,5 +52,6 @@ if st.button("Start replay"):
             m1.metric("Payments", i)
             m2.metric("Blocked", int((seen["decision"] == "Block").sum()))
             m3.metric("Step-up OTP", int((seen["decision"] == "Step_up_OTP").sum()))
-            st.dataframe(seen.tail(6).iloc[::-1][["channel", "amount", "fraud_probability", "decision"]], hide_index = True, width = "stretch")
+            recent = seen.tail(6).iloc[::-1][["channel", "amount", "fraud_probability", "decision"]].assign(decision = lambda x : x["decision"].map(pretty))
+            st.dataframe(recent, hide_index = True, width = "stretch", column_config = table_columns())
         time.sleep(0.25)
